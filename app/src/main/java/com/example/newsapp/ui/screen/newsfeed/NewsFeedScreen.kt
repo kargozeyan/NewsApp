@@ -108,13 +108,13 @@ private fun ArticleItem(
                     .fillMaxSize(),
             ) {
                 Text(
-                    text = article.source.name,
+                    text = article.source?.name ?: "",
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
                     color = Grey500
                 )
                 Text(
-                    text = article.title,
+                    text = article.title ?: "",
                     fontSize = 12.sp,
                     color = Blue700,
                     modifier = Modifier
@@ -122,7 +122,7 @@ private fun ArticleItem(
                         .padding(bottom = 16.dp)
                 )
                 Text(
-                    text = article.author,
+                    text = article.author ?: "",
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
                     color = Grey500,
