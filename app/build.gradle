@@ -1,6 +1,8 @@
 plugins {
     id 'com.android.application'
     id 'org.jetbrains.kotlin.android'
+    id 'kotlin-kapt'
+    id 'com.google.dagger.hilt.android'
 }
 
 android {
@@ -45,6 +47,8 @@ android {
         }
     }
     defaultConfig {
+        buildConfigField("String", "API_BASE_URL", "\"https://newsapi.org\"")
+        buildConfigField("String", "API_VERSION", "\"v2\"")
         buildConfigField("String", "API_KEY", "\"1fa17eaf1a904264a021796354282fc4\"")
     }
 }
@@ -62,17 +66,27 @@ dependencies {
     debugImplementation "androidx.compose.ui:ui-tooling:$compose_ui_version"
     debugImplementation "androidx.compose.ui:ui-test-manifest:$compose_ui_version"
 
-    // Retrofit
-    implementation 'com.squareup.retrofit2:retrofit:2.9.0'
-    implementation 'com.squareup.retrofit2:converter-gson:2.9.0'
-
-    // Compose Livedata
+    // Compose Live Data
     implementation "androidx.compose.runtime:runtime-livedata:$compose_ui_version"
-
-    // Coil
-    implementation "io.coil-kt:coil-compose:2.2.2"
 
     // Material Icons
     implementation "androidx.compose.material:material-icons-core:$compose_ui_version"
     implementation "androidx.compose.material:material-icons-extended:$compose_ui_version"
+
+    // Retrofit and Okhttp
+    implementation 'com.squareup.retrofit2:retrofit:2.9.0'
+    implementation 'com.squareup.retrofit2:converter-gson:2.9.0'
+    implementation 'com.squareup.okhttp3:logging-interceptor:5.0.0-alpha.11'
+
+    // Coil
+    implementation 'io.coil-kt:coil-compose:2.3.0'
+
+    // Hilt
+    implementation 'com.google.dagger:hilt-android:2.45'
+    kapt 'com.google.dagger:hilt-compiler:2.45'
+    implementation 'androidx.hilt:hilt-navigation-compose:1.0.0'
+}
+
+kapt {
+    correctErrorTypes true
 }
