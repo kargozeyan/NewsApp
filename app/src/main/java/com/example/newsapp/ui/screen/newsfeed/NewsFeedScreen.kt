@@ -1,7 +1,20 @@
 package com.example.newsapp.ui.screen.newsfeed
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -14,7 +27,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.livedata.observeAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -27,9 +40,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.example.newsapp.model.Article
 import com.example.newsapp.ui.common.UiState
+import com.example.newsapp.ui.shared.OptionsRow
 import com.example.newsapp.ui.theme.Blue700
 import com.example.newsapp.ui.theme.Grey200
 import com.example.newsapp.ui.theme.Grey500
@@ -39,14 +54,15 @@ import com.example.newsapp.ui.theme.White
 fun NewsFeedScreen() {
     val viewModel: NewsFeedViewModel = hiltViewModel()
 
-    val uiState = viewModel.uiState.observeAsState(UiState.LOADING).value
-    val articles = viewModel.articles.observeAsState(emptyList()).value
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-    when (uiState) {
-        UiState.LOADING -> LoadingScreen()
-        UiState.SUCCESS -> ArticleList(articles)
-        UiState.FAILURE -> ErrorScreen()
+    if (uiState == UiState.FAILURE) {
+        ErrorScreen()
+        return
     }
+
+
+    MainScreen(viewModel)
 }
 
 @Composable
@@ -63,30 +79,54 @@ private fun ErrorScreen() {
     }
 }
 
+private val categories: List<String> = listOf(
+    "General", "Business", "Entertainment", "Health", "Science", "Sports", "Technology"
+)
+
 @Composable
-private fun ArticleList(articles: List<Article>) {
-    LazyColumn {
-        item {
-            TopBar()
+private fun MainScreen(viewModel: NewsFeedViewModel) {
+    val articles by viewModel.articles.collectAsStateWithLifecycle()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val areCategoriesVisible by viewModel.areCategoriesVisible.collectAsStateWithLifecycle()
+    val selectedCategory by viewModel.category.collectAsStateWithLifecycle()
+
+    Column {
+        TopBar { viewModel.toggleCategoriesVisibility() }
+        if (uiState == UiState.LOADING) {
+            LoadingScreen()
+        } else {
+            AnimatedVisibility(visible = areCategoriesVisible) {
+                OptionsRow(
+                    options = categories,
+                    initialSelection = selectedCategory,
+                    onOptionSelected = { category -> viewModel.updateCategory(category) },
+                    edgePadding = 12.dp,
+                    spaceBetween = 8.dp
+                )
+            }
         }
-        items(articles) {
-            ArticleItem(it)
+        LazyColumn {
+            item {
+
+            }
+            items(articles) { article ->
+                ArticleCard(article)
+            }
         }
     }
+
 }
 
-
 @Composable
-private fun ArticleItem(
-    article: Article
-) {
+private fun ArticleCard(article: Article) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .height(128.dp)
             .padding(12.dp, 8.dp),
         backgroundColor = Grey200,
-        elevation = 0.dp
+        elevation = 0.dp,
+        shape = RoundedCornerShape(12.dp)
     ) {
         Row {
             AsyncImage(
@@ -134,44 +174,10 @@ private fun ArticleItem(
 }
 
 @Composable
-private fun TopBar() {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(Blue700)
-            .padding(12.dp, 0.dp, 12.dp, 8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        Text(
-            text = "News",
-            fontSize = 36.sp,
-            fontWeight = FontWeight.ExtraBold,
-            color = White
-        )
-        Row {
-            SearchField(
-                Modifier
-                    .weight(8f)
-                    .align(Alignment.CenterVertically)
-            )
-            Icon(
-                imageVector = Icons.Rounded.Tune, contentDescription = "",
-                modifier = Modifier
-                    .rotate(-90f)
-                    .weight(1f)
-                    .align(Alignment.CenterVertically),
-                tint = White,
-            )
-        }
-    }
-}
-
-@Composable
 private fun SearchField(modifier: Modifier) {
     val input = remember { mutableStateOf("") }
 
-    BasicTextField(
-        value = input.component1(),
+    BasicTextField(value = input.component1(),
         onValueChange = input.component2(),
         modifier = modifier,
         decorationBox = { innerTextField ->
@@ -179,8 +185,7 @@ private fun SearchField(modifier: Modifier) {
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(
-                        color = White,
-                        shape = RoundedCornerShape(12.dp)
+                        color = White, shape = RoundedCornerShape(12.dp)
                     )
                     .padding(all = 8.dp), // inner padding
                 verticalAlignment = Alignment.CenterVertically
@@ -197,8 +202,46 @@ private fun SearchField(modifier: Modifier) {
                     }
                     innerTextField()
                 }
+            }
+        })
+}
 
+@Composable
+private fun TopBar(onFilterIconClick: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Blue700)
+            .padding(12.dp, 0.dp, 12.dp, 8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Text(
+            text = "News", fontSize = 36.sp, fontWeight = FontWeight.ExtraBold, color = White
+        )
+        Row(
+            modifier = Modifier.height(IntrinsicSize.Min),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            SearchField(
+                Modifier
+                    .weight(8f)
+                    .align(Alignment.CenterVertically)
+            )
+            Box(
+                Modifier
+                    .weight(1f)
+                    .align(Alignment.CenterVertically)
+                    .background(White, RoundedCornerShape(12.dp))
+                    .fillMaxHeight()
+                    .clickable { onFilterIconClick() }) {
+                Icon(
+                    imageVector = Icons.Rounded.Tune, contentDescription = "",
+                    modifier = Modifier
+                        .rotate(-90f)
+                        .align(Alignment.Center),
+                    tint = Blue700,
+                )
             }
         }
-    )
+    }
 }
