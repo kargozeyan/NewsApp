@@ -9,6 +9,7 @@ interface NewsApiService {
     @GET("top-headlines")
     suspend fun fetchNews(
         @Query("country") country: String,
-        @Query("category") category: String? = null
+        @Query("category") category: String,
+        @Query("q") search: String
     ): ApiResponse
 }

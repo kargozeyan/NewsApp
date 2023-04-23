@@ -21,15 +21,21 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.Card
 import androidx.compose.material.CircularProgressIndicator
+import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.Icon
 import androidx.compose.material.Text
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.material.pullrefresh.PullRefreshIndicator
+import androidx.compose.material.pullrefresh.pullRefresh
+import androidx.compose.material.pullrefresh.rememberPullRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
@@ -85,36 +91,58 @@ private val categories: List<String> = listOf(
 
 @Composable
 private fun MainScreen(viewModel: NewsFeedViewModel) {
-    val articles by viewModel.articles.collectAsStateWithLifecycle()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val areCategoriesVisible by viewModel.areCategoriesVisible.collectAsStateWithLifecycle()
     val selectedCategory by viewModel.category.collectAsStateWithLifecycle()
+    val areCategoriesVisible by viewModel.areCategoriesVisible.collectAsStateWithLifecycle()
 
     Column {
-        TopBar { viewModel.toggleCategoriesVisibility() }
+        TopBar(viewModel)
+        AnimatedVisibility(visible = areCategoriesVisible) {
+            OptionsRow(
+                options = categories,
+                initialSelection = selectedCategory,
+                onOptionSelected = { category -> viewModel.updateCategory(category) },
+                edgePadding = 12.dp,
+                spaceBetween = 8.dp
+            )
+        }
         if (uiState == UiState.LOADING) {
             LoadingScreen()
         } else {
-            AnimatedVisibility(visible = areCategoriesVisible) {
-                OptionsRow(
-                    options = categories,
-                    initialSelection = selectedCategory,
-                    onOptionSelected = { category -> viewModel.updateCategory(category) },
-                    edgePadding = 12.dp,
-                    spaceBetween = 8.dp
-                )
-            }
+            ArticleList(viewModel)
         }
-        LazyColumn {
-            item {
+    }
 
-            }
+}
+
+@OptIn(ExperimentalMaterialApi::class)
+@Composable
+fun ArticleList(viewModel: NewsFeedViewModel) {
+    val articles by viewModel.articles.collectAsStateWithLifecycle()
+    if (articles.isEmpty()) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Text("No Results Found", color = Blue700)
+        }
+        return
+    }
+    val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
+    val pullRefreshState = rememberPullRefreshState(
+        refreshing = isRefreshing,
+        onRefresh = { viewModel.refreshArticles() }
+    )
+    Box(Modifier.pullRefresh(pullRefreshState)) {
+
+        LazyColumn() {
             items(articles) { article ->
                 ArticleCard(article)
             }
         }
-    }
+        PullRefreshIndicator(
+            refreshing = isRefreshing, state = pullRefreshState,
+            modifier = Modifier.align(Alignment.TopCenter)
 
+        )
+    }
 }
 
 @Composable
@@ -174,12 +202,15 @@ private fun ArticleCard(article: Article) {
 }
 
 @Composable
-private fun SearchField(modifier: Modifier) {
-    val input = remember { mutableStateOf("") }
+private fun SearchField(viewModel: NewsFeedViewModel, modifier: Modifier) {
+    val initialValue by viewModel.search.collectAsStateWithLifecycle()
+    var input by remember { mutableStateOf(initialValue) }
 
-    BasicTextField(value = input.component1(),
-        onValueChange = input.component2(),
+    BasicTextField(value = input,
+        onValueChange = { input = it },
         modifier = modifier,
+        maxLines = 1,
+        singleLine = true,
         decorationBox = { innerTextField ->
             Row(
                 modifier = Modifier
@@ -194,20 +225,36 @@ private fun SearchField(modifier: Modifier) {
                     imageVector = Icons.Default.Search,
                     contentDescription = "Search Icon",
                     tint = Blue700,
+                    modifier = Modifier.clickable {
+                        viewModel.updateSearch(input)
+                    }
                 )
                 Spacer(modifier = Modifier.width(width = 8.dp))
-                Box {
-                    if (input.value.isEmpty()) {
+                Box(
+                    Modifier.weight(1f)
+                ) {
+                    if (input.isEmpty()) {
                         Text("Search", color = Grey500)
                     }
                     innerTextField()
+                }
+                if (input.isNotEmpty()) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Close Icon",
+                        tint = Blue700,
+                        modifier = Modifier.clickable {
+                            input = ""
+                            viewModel.updateSearch(input)
+                        }
+                    )
                 }
             }
         })
 }
 
 @Composable
-private fun TopBar(onFilterIconClick: () -> Unit) {
+private fun TopBar(viewModel: NewsFeedViewModel) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -223,6 +270,7 @@ private fun TopBar(onFilterIconClick: () -> Unit) {
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             SearchField(
+                viewModel,
                 Modifier
                     .weight(8f)
                     .align(Alignment.CenterVertically)
@@ -233,7 +281,7 @@ private fun TopBar(onFilterIconClick: () -> Unit) {
                     .align(Alignment.CenterVertically)
                     .background(White, RoundedCornerShape(12.dp))
                     .fillMaxHeight()
-                    .clickable { onFilterIconClick() }) {
+                    .clickable { viewModel.toggleCategoriesVisibility() }) {
                 Icon(
                     imageVector = Icons.Rounded.Tune, contentDescription = "",
                     modifier = Modifier
