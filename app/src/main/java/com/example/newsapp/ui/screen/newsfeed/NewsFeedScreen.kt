@@ -47,6 +47,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import com.example.newsapp.model.Article
 import com.example.newsapp.ui.common.UiState
@@ -57,7 +58,7 @@ import com.example.newsapp.ui.theme.Grey500
 import com.example.newsapp.ui.theme.White
 
 @Composable
-fun NewsFeedScreen() {
+fun NewsFeedScreen(navController: NavController) {
     val viewModel: NewsFeedViewModel = hiltViewModel()
 
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -67,7 +68,7 @@ fun NewsFeedScreen() {
         return
     }
 
-
+    viewModel.registerNavController(navController)
     MainScreen(viewModel)
 }
 
@@ -132,9 +133,11 @@ fun ArticleList(viewModel: NewsFeedViewModel) {
     )
     Box(Modifier.pullRefresh(pullRefreshState)) {
 
-        LazyColumn() {
-            items(articles) { article ->
-                ArticleCard(article)
+        LazyColumn {
+            items(articles) {
+                ArticleCard(it) {
+                    viewModel.navigateToDetails(it.id)
+                }
             }
         }
         PullRefreshIndicator(
@@ -146,15 +149,16 @@ fun ArticleList(viewModel: NewsFeedViewModel) {
 }
 
 @Composable
-private fun ArticleCard(article: Article) {
+private fun ArticleCard(article: Article, onClick: () -> Unit) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .height(128.dp)
-            .padding(12.dp, 8.dp),
+            .padding(12.dp, 8.dp)
+            .clickable(onClick = onClick),
         backgroundColor = Grey200,
         elevation = 0.dp,
-        shape = RoundedCornerShape(12.dp)
+        shape = RoundedCornerShape(12.dp),
     ) {
         Row {
             AsyncImage(
@@ -176,13 +180,13 @@ private fun ArticleCard(article: Article) {
                     .fillMaxSize(),
             ) {
                 Text(
-                    text = article.source?.name ?: "",
+                    text = article.source.name,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
                     color = Grey500
                 )
                 Text(
-                    text = article.title ?: "",
+                    text = article.title,
                     fontSize = 12.sp,
                     color = Blue700,
                     modifier = Modifier
@@ -190,7 +194,7 @@ private fun ArticleCard(article: Article) {
                         .padding(bottom = 16.dp)
                 )
                 Text(
-                    text = article.author ?: "",
+                    text = article.author,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
                     color = Grey500,
